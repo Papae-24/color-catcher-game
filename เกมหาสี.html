@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>เกมเก็บแม่สี AR Hand Tracking - สื่อการสอนเพื่อเด็กพิเศษ</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎨</text></svg>">
+    
+    <link href="https://fonts.googleapis.com/css2?family=Itim&display=swap" rel="stylesheet">
+    
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #ECEFF1;
+            font-family: 'Itim', cursive;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #header-zone {
+            position: absolute;
+            top: 20px;
+            left: 10%;
+            width: 80%;
+            text-align: center;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.92);
+            border-radius: 25px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+            z-index: 10;
+        }
+
+        #target-instruction {
+            font-size: 2.8rem;
+            margin: 0;
+            color: #37474F;
+        }
+
+        #target-color-display {
+            display: inline-block;
+            padding: 5px 35px;
+            border-radius: 20px;
+            color: white;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            margin-top: 5px;
+        }
+
+        /* 🔍 [แก้ไขจุดนี้] ซ่อมแซมปีกกาหลุด และปรับฟอนต์ตัวเลขให้ชัดเจน ตัวใหญ่ขึ้นมองเห็นชัด */
+        #info-bar {
+            display: flex;
+            justify-content: space-around;
+            font-size: 3rem; /* ขยายให้ใหญ่เต็มตาขึ้นเป็น 3rem */
+            margin-top: 10px;
+            font-weight: bold;
+            font-family: 'Arial', 'Helvetica', sans-serif; /* ฟอนต์สากล หัวชัด อ่านง่าย */
+        }
+
+        #timer { color: #D32F2F; }
+        #score-board { color: #2E7D32; }
+
+        #audio-control {
+            position: absolute;
+            top: 25px;
+            right: 25px;
+            z-index: 20;
+            background: white;
+            border: 4px solid #64B5F6;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            font-size: 1.8rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 6px 12px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+        }
+        #audio-control:active { transform: scale(0.9); }
+
+        #video-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1); 
+            opacity: 0.5; 
+        }
+
+        #gameCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 5;
+            transform: scaleX(-1); 
+        }
+
+        #start-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: rgba(236, 239, 241, 0.95);
+            z-index: 150;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        #start-box {
+            background: white;
+            padding: 40px;
+            border-radius: 40px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+            border: 10px solid #4CAF50;
+            max-width: 550px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .btn-start {
+            background: #FF9800;
+            color: white;
+            border: none;
+            padding: 20px 60px;
+            font-size: 2.5rem;
+            font-family: 'Itim', cursive;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 10px 20px rgba(255, 152, 0, 0.4);
+            margin-top: 25px;
+            transition: transform 0.2s, background-color 0.2s;
+            animation: bounce 2s infinite;
+        }
+        .btn-start:hover { background: #F57C00; }
+        .btn-start:active { transform: scale(0.95); }
+
+        #summary-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: rgba(236, 239, 241, 0.95);
+            z-index: 100;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        #summary-box {
+            background: white;
+            padding: 30px;
+            border-radius: 40px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+            border: 10px solid #FFD700; 
+            max-width: 500px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #player-snapshot {
+            width: 280px;
+            height: 210px;
+            border-radius: 20px;
+            border: 6px solid #FFD700;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+            object-fit: cover;
+            background-color: #333;
+            margin-top: 10px;
+            margin-bottom: 15px;
+            transform: scaleX(-1); 
+        }
+
+        .btn-restart {
+            background: #2E7D32;
+            color: white;
+            border: none;
+            padding: 12px 35px;
+            font-size: 1.8rem;
+            font-family: 'Itim', cursive;
+            border-radius: 20px;
+            cursor: pointer;
+            box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+            margin-top: 10px;
+        }
+
+        .firework {
+            position: absolute;
+            font-size: 4rem;
+            animation: explode 1.5s ease-out infinite;
+            opacity: 0;
+            z-index: 101;
+        }
+
+        @keyframes explode {
+            0% { transform: scale(0) translate(0, 0); opacity: 0; }
+            50% { opacity: 1; }
+            100% { transform: scale(1.5) translate(var(--x), var(--y)); opacity: 0; }
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+    </style>
+</head>
+<body>
+
+<button id="audio-control" onclick="toggleMusic()">🎵</button>
+
+<div id="start-screen">
+    <div id="start-box">
+        <h1 style="font-size: 3.5rem; color: #2E7D32; margin: 10px 0;">🎮 เกมเก็บแม่สี AR 🎮</h1>
+        <p style="font-size: 1.8rem; color: #37474F; margin: 5px 0; max-width: 450px;">
+            ยินดีต้อนรับเด็กๆ เข้าสู่ห้องเรียนแสนสนุก! เตรียมมือทั้งสองข้างให้พร้อม แล้วขยับปัดเก็บเฉพาะลูกบอลที่เป็นแม่สีตามคำสั่งครูนะคร้าบ 🎨✨
+        </p>
+        <button class="btn-start" onclick="pressStart()">เริ่มเล่นเกมเลย! 🚀</button>
+    </div>
+</div>
+
+<div id="game-container">
+    <div id="header-zone">
+        <h1 id="target-instruction">👉 รีบเก็บแม่สี: <span id="target-color-display">สีแดง 🔴</span> 👈</h1>
+        <div id="info-bar">
+            <div id="timer">⏰ เวลาเหลือ: <span id="time-left">120</span> วินาที</div>
+            <div id="score-board">✨ คะแนน: <span id="score">0</span></div>
+        </div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="video-container">
+        <video id="webcam" autoplay playsinline></video>
+    </div>
+</div>
+
+<div id="summary-screen">
+    <div id="summary-box">
+        <h1 style="font-size: 3rem; color: #1565C0; margin: 5px 0;">🏆 สุดยอดคนเก่ง! 🏆</h1>
+        
+        <canvas id="player-snapshot"></canvas>
+        
+        <p style="font-size: 1.8rem; color: #37474F; margin: 5px 0;">หนูแยกแยะแม่สีและคุมมือได้เยี่ยมมากเลย!</p>
+        <div style="font-size: 3.5rem; color: #2E7D32; font-weight: bold; margin: 10px 0; font-family: 'Arial', sans-serif;">
+            ได้คะแนนรวม <span id="final-score" style="font-size: 4.5rem;">0</span> คะแนน
+        </div>
+        <button class="btn-restart" onclick="restartGame()">เล่นอีกครั้ง 🔄</button>
+    </div>
+    <div class="firework" style="top: 20%; left: 20%; --x: -50px; --y: -50px;">🎆</div>
+    <div class="firework" style="top: 15%; right: 25%; --x: 50px; --y: -60px;">✨</div>
+    <div class="firework" style="top: 30%; left: 40%; --x: 10px; --y: -70px;">🎉</div>
+    <div class="firework" style="top: 60%; left: 15%; --x: -40px; --y: 40px;">🌟</div>
+</div>
+
+<script>
+    const video = document.getElementById('webcam');
+    const gameCanvas = document.getElementById('gameCanvas');
+    const gameCtx = gameCanvas.getContext('2d');
+    
+    let score = 0;
+    let timeLeft = 120; 
+    let gameInterval, timerInterval;
+    let isGameOver = true; 
+    let isMusicPlaying = false;
+
+    const bgMusic = new Audio('https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3'); 
+    bgMusic.loop = true;
+    bgMusic.volume = 0.15; 
+
+    let audioCtx = null;
+
+    function initAudioContext() {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+    }
+
+    function playScoreSoundFX() {
+        try {
+            initAudioContext();
+            let osc1 = audioCtx.createOscillator();
+            let gain1 = audioCtx.createGain();
+            osc1.type = 'triangle';
+            osc1.frequency.setValueAtTime(300, audioCtx.currentTime);
+            osc1.frequency.exponentialRampToValueAtTime(600, audioCtx.currentTime + 0.15);
+            gain1.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gain1.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+            osc1.connect(gain1);
+            gain1.connect(audioCtx.destination);
+            osc1.start();
+            osc1.stop(audioCtx.currentTime + 0.15);
+
+            setTimeout(() => {
+                let osc2 = audioCtx.createOscillator();
+                let gain2 = audioCtx.createGain();
+                osc2.type = 'sine';
+                osc2.frequency.setValueAtTime(800, audioCtx.currentTime);
+                osc2.frequency.exponentialRampToValueAtTime(1500, audioCtx.currentTime + 0.2);
+                gain2.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                gain2.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+                osc2.connect(gain2);
+                gain2.connect(audioCtx.destination);
+                osc2.start();
+                osc2.stop(audioCtx.currentTime + 0.2);
+            }, 50);
+        } catch (e) {}
+    }
+
+    function playWrongSoundFX() {
+        try {
+            initAudioContext();
+            let osc = audioCtx.createOscillator();
+            let gain = audioCtx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(180, audioCtx.currentTime);
+            osc.frequency.linearRampToValueAtTime(100, audioCtx.currentTime + 0.25);
+            gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.25);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.25);
+        } catch (e) {}
+    }
+
+    function playApplauseSoundFX() {
+        try {
+            initAudioContext();
+            for (let i = 0; i < 15; i++) {
+                setTimeout(() => {
+                    if (!isGameOver) return;
+                    let osc = audioCtx.createOscillator();
+                    let gain = audioCtx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(90 + Math.random()*30, audioCtx.currentTime);
+                    gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.08);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.08);
+                }, i * 60);
+            }
+
+            for (let i = 0; i < 40; i++) {
+                setTimeout(() => {
+                    if (!isGameOver) return; 
+                    let osc = audioCtx.createOscillator();
+                    let gain = audioCtx.createGain();
+                    osc.type = 'bandpass'; 
+                    osc.frequency.setValueAtTime(1200 + (Math.random() - 0.5) * 400, audioCtx.currentTime);
+                    gain.gain.setValueAtTime(0.15 + Math.random()*0.1, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.06);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.06);
+                }, 400 + (i * 70) + (Math.random() * 30)); 
+            }
+        } catch(e) {}
+    }
+
+    const colorPool = [
+        { name: "สีแดง", code: "#E53935", emoji: "🔴" },
+        { name: "สีน้ำเงิน", code: "#1E88E5", emoji: "🔵" },
+        { name: "สีเหลือง", code: "#FDD835", emoji: "🟡" }
+    ];
+    let currentTargetColor = colorPool[0];
+    let balls = [];
+    const maxBalls = 5; 
+
+    let particles = [];
+    let scoreTexts = [];
+
+    const paletteImg = new Image();
+    paletteImg.src = 'https://cdn-icons-png.flaticon.com/512/2970/2970785.png'; 
+
+    const hands = new Hands({
+        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+    });
+
+    hands.setOptions({
+        maxNumHands: 2, 
+        modelComplexity: 1,
+        minDetectionConfidence: 0.6,
+        minTrackingConfidence: 0.6
+    });
+
+    hands.onResults(onHandResults);
+
+    const camera = new Camera(video, {
+        onFrame: async () => {
+            await hands.send({ image: video });
+        },
+        width: 640,
+        height: 480
+    });
+
+    function resizeCanvas() {
+        gameCanvas.width = window.innerWidth;
+        gameCanvas.height = window.innerHeight;
+    }
+
+    window.onload = () => {
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        camera.start();
+    };
+
+    function pressStart() {
+        document.getElementById('start-screen').style.display = 'none';
+        startGame();
+    }
+
+    function startGame() {
+        score = 0;
+        timeLeft = 120;
+        balls = [];
+        particles = [];
+        scoreTexts = [];
+        isGameOver = false;
+        document.getElementById('score').innerText = score;
+        document.getElementById('summary-screen').style.display = 'none';
+
+        playMusic();
+        changeTargetColor();
+        
+        clearInterval(gameInterval);
+        clearInterval(timerInterval);
+        
+        gameInterval = setInterval(changeTargetColor, 10000);
+        timerInterval = setInterval(() => {
+            timeLeft--;
+            document.getElementById('time-left').innerText = timeLeft;
+            if (timeLeft <= 0) endGame();
+        }, 1000);
+    }
+
+    function toggleMusic() {
+        if (isMusicPlaying) {
+            bgMusic.pause();
+            document.getElementById('audio-control').innerText = '🔇';
+            isMusicPlaying = false;
+        } else {
+            bgMusic.play().catch(e => {});
+            document.getElementById('audio-control').innerText = '🎵';
+            isMusicPlaying = true;
+        }
+    }
+
+    function playMusic() {
+        bgMusic.play().then(() => {
+            document.getElementById('audio-control').innerText = '🎵';
+            isMusicPlaying = true;
+        }).catch(err => {
+            document.getElementById('audio-control').innerText = '🔇';
+            isMusicPlaying = false;
+        });
+    }
+
+    function changeTargetColor() {
+        if (isGameOver) return;
+        const randomIndex = Math.floor(Math.random() * colorPool.length);
+        currentTargetColor = colorPool[randomIndex];
+        
+        const displaySpan = document.getElementById('target-color-display');
+        displaySpan.innerText = currentTargetColor.name + " " + currentTargetColor.emoji;
+        displaySpan.style.backgroundColor = currentTargetColor.code;
+    }
+
+    function spawnBall() {
+        if (balls.length < maxBalls && Math.random() < 0.03) {
+            const randomColor = colorPool[Math.floor(Math.random() * colorPool.length)];
+            balls.push({
+                x: Math.random() * (gameCanvas.width - 120) + 60,
+                y: -40,
+                radius: 40,
+                color: randomColor,
+                speed: Math.random() * 2 + 2
+            });
+        }
+    }
+
+    function createParticles(x, y, color) {
+        for (let i = 0; i < 15; i++) {
+            particles.push({
+                x: x,
+                y: y,
+                vx: (Math.random() - 0.5) * 8, 
+                vy: (Math.random() - 0.5) * 8, 
+                radius: Math.random() * 5 + 3,
+                color: color,
+                alpha: 1, 
+                life: Math.random() * 20 + 20
+            });
+        }
+    }
+
+    function createScoreText(x, y, text, color) {
+        scoreTexts.push({
+            x: x,
+            y: y,
+            text: text,
+            color: color,
+            vy: -2, 
+            alpha: 1,
+            life: 40
+        });
+    }
+
+    // 🔍 [แก้ไขจุดนี้] ซ่อมแซมและจัดระเบียบฟังก์ชันอัปเดตเอฟเฟกต์ และเปลี่ยนฟอนต์ตัวหนังสือคะแนนที่เด้งขึ้นมา (+10) ให้เป็น Arial คมชัดหนาแน่นเต็มพิกัด
+    function updateAndDrawEffects() {
+        for (let i = particles.length - 1; i >= 0; i--) {
+            let p = particles[i];
+            p.x += p.vx;
+            p.y += p.vy;
+            p.alpha = p.life / 40;
+            p.life--;
+
+            gameCtx.save();
+            gameCtx.globalAlpha = p.alpha;
+            gameCtx.beginPath();
+            gameCtx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+            gameCtx.fillStyle = p.color;
+            gameCtx.fill();
+            gameCtx.restore();
+
+            if (p.life <= 0) particles.splice(i, 1);
+        }
+
+        for (let i = scoreTexts.length - 1; i >= 0; i--) {
+            let t = scoreTexts[i];
+            t.y += t.vy;
+            t.alpha = t.life / 40;
+            t.life--;
+
+            gameCtx.save();
+            gameCtx.globalAlpha = t.alpha;
+            gameCtx.font = "bold 45px 'Arial'"; /* ปรับมาเป็นฟอนต์อารีียล หนาและใหญ่เห็นชัด */
+            gameCtx.fillStyle = t.color;
+            gameCtx.strokeStyle = '#FFFFFF';
+            gameCtx.lineWidth = 6;
+            
+            gameCtx.translate(t.x, t.y);
+            gameCtx.scale(-1, 1); 
+            gameCtx.textAlign = 'center';
+            gameCtx.strokeText(t.text, 0, 0);
+            gameCtx.fillText(t.text, 0, 0);
+            gameCtx.restore();
+
+            if (t.life <= 0) scoreTexts.splice(i, 1);
+        }
+    }
+
+    function onHandResults(results) {
+        gameCtx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
+        
+        if (isGameOver) return; 
+
+        spawnBall();
+        updateAndDrawBalls();
+        updateAndDrawEffects();
+
+        if (results.multiHandLandmarks && results.multiHandedness) {
+            if(!isMusicPlaying && timeLeft > 115) { playMusic(); }
+
+            for (let index = 0; index < results.multiHandLandmarks.length; index++) {
+                const landmarks = results.multiHandLandmarks[index];
+                const handedness = results.multiHandedness[index]; 
+                
+                let minX = gameCanvas.width, maxX = 0, minY = gameCanvas.height, maxY = 0;
+                
+                const palmX = landmarks[9].x * gameCanvas.width;
+                const palmY = landmarks[9].y * gameCanvas.height;
+
+                landmarks.forEach(landmark => {
+                    const px = landmark.x * gameCanvas.width;
+                    const py = landmark.y * gameCanvas.height;
+                    if (px < minX) minX = px;
+                    if (px > maxX) maxX = px;
+                    if (py < minY) minY = py;
+                    if (py > maxY) maxY = py;
+                });
+
+                minX -= 25; maxX += 25; minY -= 25; maxY += 25;
+                const boxWidth = maxX - minX;
+                const boxHeight = maxY - minY;
+
+                const isRightHand = handedness.label === 'Left'; 
+                const strokeColor = isRightHand ? '#4CAF50' : '#2196F3';
+                const labelText = isRightHand ? 'มือขวา' : 'มือซ้าย';
+
+                gameCtx.lineWidth = 5;
+                gameCtx.strokeStyle = strokeColor;
+                gameCtx.strokeRect(minX, minY, boxWidth, boxHeight);
+
+                gameCtx.fillStyle = strokeColor;
+                gameCtx.font = "bold 24px 'Itim'";
+                gameCtx.save();
+                gameCtx.translate(minX + boxWidth/2, minY - 15);
+                gameCtx.scale(-1, 1); 
+                gameCtx.textAlign = 'center';
+                gameCtx.fillText(labelText, 0, 0);
+                gameCtx.restore();
+
+                const itemSize = 90;
+                gameCtx.drawImage(paletteImg, palmX - itemSize/2, palmY - itemSize/2, itemSize, itemSize);
+
+                checkCollision(palmX, palmY, itemSize/2);
+            }
+        }
+    }
+
+    function updateAndDrawBalls() {
+        for (let i = balls.length - 1; i >= 0; i--) {
+            let ball = balls[i];
+            ball.y += ball.speed;
+
+            gameCtx.beginPath();
+            gameCtx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+            gameCtx.fillStyle = ball.color.code;
+            gameCtx.fill();
+            gameCtx.lineWidth = 4;
+            gameCtx.strokeStyle = '#FFFFFF';
+            gameCtx.stroke();
+            gameCtx.closePath();
+
+            if (ball.y > gameCanvas.height + 50) {
+                balls.splice(i, 1);
+            }
+        }
+    }
+
+    function checkCollision(handX, handY, handRadius) {
+        for (let i = balls.length - 1; i >= 0; i--) {
+            let ball = balls[i];
+            const dist = Math.hypot(handX - ball.x, handY - ball.y);
+            
+            if (dist < handRadius + ball.radius) {
+                if (ball.color.name === currentTargetColor.name) {
+                    score += 10;
+                    document.getElementById('score').innerText = score;
+                    
+                    createParticles(ball.x, ball.y, '#4CAF50');
+                    createScoreText(ball.x, ball.y, '+10 POINTS! ✨', '#4CAF50');
+                    playScoreSoundFX();
+                } else {
+                    createParticles(ball.x, ball.y, '#FF5252');
+                    playWrongSoundFX();
+                }
+                balls.splice(i, 1); 
+            }
+        }
+    }
+
+    function endGame() {
+        isGameOver = true;
+        clearInterval(gameInterval);
+        clearInterval(timerInterval);
+        bgMusic.pause(); 
+
+        const snapshotCanvas = document.getElementById('player-snapshot');
+        const snapCtx = snapshotCanvas.getContext('2d');
+        snapshotCanvas.width = 280;
+        snapshotCanvas.height = 210;
+        snapCtx.drawImage(video, 0, 0, snapshotCanvas.width, snapshotCanvas.height);
+
+        document.getElementById('final-score').innerText = score;
+        document.getElementById('summary-screen').style.display = 'flex';
+        
+        gameCtx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
+        playApplauseSoundFX();
+    }
+
+    function restartGame() {
+        startGame();
+    }
+</script>
+
+</body>
+</html>
